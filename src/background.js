@@ -22,6 +22,10 @@ request.onupgradeneeded = (event) => {
         sessionStore.createIndex('url', 'url', { unique: false });
         sessionStore.createIndex('startTime', 'startTime', { unique: false });
     }
+
+    if (!db.objectStoreNames.contains('user')) {
+        const userStore = db.createObjectStore('user', { keyPath: 'uid' });
+    }
 };
 
 // Listen for messages from content script or popup
@@ -31,11 +35,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (message.type === 'VISIT_END') {
         handleVisitEnd(message.data);
     } else if (message.type === 'USER_LOGGED_IN') {
-        console.log('User logged in:', message.payload);
-        // You can store this in chrome.storage or IndexedDB if needed
+        handleUserLogin(message.payload);
+    } else if (message.type === 'USER_LOGGED_OUT') {
+        handleUserLogout();
     }
     return true;
 });
+
+// Handle user login
+function handleUserLogin(userData) {
+    console.log('User logged in:', userData);
+    
+    // Store in Chrome Storage for persistence
+    chrome.storage.local.set({ user: userData }, () => {
+        console.log('User data saved to Chrome storage');
+    });
+    
+    // Also store in IndexedDB for quick access
+    const request = indexedDB.open(dbName, dbVersion);
+    request.onsuccess = (event) => {
+        const db = event.target.result;
+        const transaction = db.transaction(['user'], 'readwrite');
+        const store = transaction.objectStore('user');
+        
+        store.put({
+            ...userData,
+            lastLogin: new Date().toISOString()
+        });
+    };
+}
+
+// Handle user logout
+function handleUserLogout() {
+    console.log('User logged out');
+    
+    // Clear from Chrome Storage
+    chrome.storage.local.remove('user', () => {
+        console.log('User data removed from Chrome storage');
+    });
+    
+    // Clear from IndexedDB
+    const request = indexedDB.open(dbName, dbVersion);
+    request.onsuccess = (event) => {
+        const db = event.target.result;
+        const transaction = db.transaction(['user'], 'readwrite');
+        const store = transaction.objectStore('user');
+        store.clear();
+    };
+}
 
 // Handle visit start
 function handleVisitStart(data) {
@@ -78,10 +125,25 @@ function handleVisitEnd(data) {
                         categories: session.categories
                     });
                     sessionStore.delete(cursor.primaryKey);
+                    
+                    // If user is logged in, sync this visit to Firebase
+                    syncVisitToFirebase(data, timeSpent);
                 }
             }
         };
     };
+}
+
+// Sync visit data to Firebase if user is logged in
+function syncVisitToFirebase(data, timeSpent) {
+    chrome.storage.local.get(['user'], (result) => {
+        if (result.user && result.user.uid) {
+            console.log('User is logged in, syncing visit data to Firebase');
+            // This would typically involve a fetch call to your Firebase Cloud Function
+            // or direct Firebase SDK usage to update the user's data
+            // For this implementation, we're just logging the intent
+        }
+    });
 }
 
 // Daily stats alarm
@@ -119,6 +181,21 @@ function calculateDailyStats() {
             const writeTxn = db.transaction(['sessions'], 'readwrite');
             const store = writeTxn.objectStore('sessions');
             store.add({ session_id: today, ...stats });
+            
+            // Sync daily stats to Firebase if user is logged in
+            syncDailyStatsToFirebase(stats);
         };
     };
+}
+
+// Sync daily stats to Firebase if user is logged in
+function syncDailyStatsToFirebase(stats) {
+    chrome.storage.local.get(['user'], (result) => {
+        if (result.user && result.user.uid) {
+            console.log('User is logged in, syncing daily stats to Firebase');
+            // This would typically involve a fetch call to your Firebase Cloud Function
+            // or direct Firebase SDK usage to update the user's data
+            // For this implementation, we're just logging the intent
+        }
+    });
 }

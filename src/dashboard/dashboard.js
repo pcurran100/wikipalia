@@ -1,16 +1,25 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { 
+    getAuth, 
+    signOut, 
+    onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+    getFirestore, 
+    doc, 
+    getDoc 
+} from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 
 // Firebase configuration
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyA_d3h95h4j-hfvK6KZPJgZwRVQqeKuY5A",
+    authDomain: "wikiwrap-85e55.firebaseapp.com",
+    projectId: "wikiwrap-85e55",
+    storageBucket: "wikiwrap-85e55.firebasestorage.app",
+    messagingSenderId: "210626516537",
+    appId: "1:210626516537:web:a0147d159f06ae96b95fe8",
+    measurementId: "G-XHL2FT09PD"
 };
 
 // Initialize Firebase
@@ -53,7 +62,8 @@ onAuthStateChanged(auth, (user) => {
 // Load User Data
 async function loadUserData(userId) {
     try {
-        const userDoc = await getDoc(doc(db, 'users', userId));
+        const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
             const data = userDoc.data();
             updateStats(data);

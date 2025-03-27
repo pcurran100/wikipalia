@@ -10,7 +10,15 @@ export default defineConfig({
   build: {
     target: ['chrome112'],
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        popup: resolve(__dirname, 'src/popup.html'),
+        dashboard: resolve(__dirname, 'src/dashboard/index.html'),
+        background: resolve(__dirname, 'background.js'),
+        content: resolve(__dirname, 'content.js')
+      }
+    }
   },
   resolve: {
     alias: {

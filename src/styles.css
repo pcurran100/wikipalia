@@ -20,6 +20,51 @@ canvas {
 body.popup {
     width: 320px;
     height: 480px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* Form styles */
+input {
+    font-size: 14px;
+}
+
+button {
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+button:hover {
+    transform: translateY(-1px);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+/* Stats container */
+.stats-container {
+    background-color: #f8fafc;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.stats-row {
+    padding: 6px 0;
+}
+
+.stat-label {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.stat-value {
+    font-weight: 600;
+    color: #334155;
 }
 
 /* Dashboard specific styles */
@@ -93,6 +138,13 @@ body.popup {
     border-top-color: #3b82f6;
     animation: spin 1s linear infinite;
     z-index: 1;
+}
+
+/* Error message */
+#error-message {
+    border-radius: 4px;
+    margin-bottom: 12px;
+    display: none;
 }
 
 /* Transitions */
