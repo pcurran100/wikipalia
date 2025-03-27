@@ -104,10 +104,17 @@ function showError(message) {
 }
 
 function formatDuration(ms) {
-    const minutes = Math.floor(ms / 60000);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours} hrs ${minutes % 60} min`;
+    // Format with hours, minutes, and seconds
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${seconds}s`;
+    } else {
+        return `${minutes}m ${seconds}s`;
+    }
 }
 
 function loadStats() {
@@ -116,20 +123,22 @@ function loadStats() {
 
     dbRequest.onsuccess = (event) => {
         const db = event.target.result;
-        const transaction = db.transaction(['visits', 'sessions'], 'readonly');
+        const transaction = db.transaction(['visits'], 'readonly');
         const visitStore = transaction.objectStore('visits');
-        const sessionStore = transaction.objectStore('sessions');
 
         const dateIndex = visitStore.index('date');
         const todayRequest = dateIndex.getAll(IDBKeyRange.only(today));
 
         todayRequest.onsuccess = () => {
             const todayVisits = todayRequest.result;
+            // Count unique articles
             const uniqueArticles = new Set(todayVisits.map(v => v.url)).size;
+            // Calculate total time spent today
             const totalTimeToday = todayVisits.reduce((acc, visit) => acc + (visit.time_spent || 0), 0);
 
-            if (todayArticles) todayArticles.textContent = uniqueArticles;
-            if (todayTime) todayTime.textContent = formatDuration(totalTimeToday);
+            // Update UI
+            todayArticles.textContent = uniqueArticles;
+            todayTime.textContent = formatDuration(totalTimeToday);
         };
     };
 

@@ -1,5 +1,7 @@
 // Track user's Wikipedia activity
 let startTime = Date.now();
+let clickedLinks = 0;
+let isArticleRead = false; // Will be set to true if time spent > 1s
 let articleData = {
     url: window.location.href,
     title: document.title.replace(' - Wikipedia', ''),
@@ -7,7 +9,9 @@ let articleData = {
     timestamp_end: null,
     time_spent: 0,
     categories: [],
-    language: window.location.hostname.split('.')[0]
+    language: window.location.hostname.split('.')[0],
+    clicked_links: 0,
+    is_read: false
 };
 
 // Fetch article categories
@@ -26,19 +30,65 @@ async function fetchCategories() {
     }
 }
 
+// Track clicked links in the article
+function setupLinkTracking() {
+    // Select all links in the article content (main article content only)
+    const contentArea = document.getElementById('content') || document.getElementById('mw-content-text');
+    if (!contentArea) return;
+    
+    const links = contentArea.querySelectorAll('a[href^="/wiki/"]');
+    
+    links.forEach(link => {
+        link.addEventListener('click', () => {
+            clickedLinks++;
+            articleData.clicked_links = clickedLinks;
+            
+            // Send an update to the background script
+            chrome.runtime.sendMessage({
+                type: 'LINK_CLICKED',
+                data: {
+                    from_url: articleData.url,
+                    from_title: articleData.title,
+                    to_url: link.href,
+                    to_title: link.textContent,
+                    timestamp: Date.now()
+                }
+            });
+        });
+    });
+}
+
 // Initialize tracking
 async function initializeTracking() {
     await fetchCategories();
+    setupLinkTracking();
+    
     chrome.runtime.sendMessage({
         type: 'VISIT_START',
         data: articleData
     });
+    
+    // Set a timeout to mark as read after 1 second
+    setTimeout(() => {
+        isArticleRead = true;
+        articleData.is_read = true;
+        chrome.runtime.sendMessage({
+            type: 'ARTICLE_READ',
+            data: {
+                url: articleData.url,
+                title: articleData.title,
+                timestamp: Date.now()
+            }
+        });
+    }, 1000);
 }
 
 // Update time spent when tab becomes inactive or user leaves
 function updateTimeSpent() {
     articleData.timestamp_end = Date.now();
     articleData.time_spent = articleData.timestamp_end - articleData.timestamp_start;
+    articleData.is_read = isArticleRead;
+    articleData.clicked_links = clickedLinks;
     
     chrome.runtime.sendMessage({
         type: 'VISIT_END',

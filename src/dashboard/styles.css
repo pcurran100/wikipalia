@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    font-family: 'Inter', sans-serif;
+    @apply bg-gray-50;
+}
+
+.dashboard-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+.header {
+    @apply flex justify-between items-center mb-8;
+}
+
+.stats-card {
+    @apply bg-white rounded-lg shadow p-6 flex flex-col items-center justify-center transition-all;
+}
+
+.stats-card:hover {
+    @apply shadow-md transform -translate-y-1;
+}
+
+.stats-value {
+    @apply text-3xl font-bold text-gray-900 mb-1;
+}
+
+.stats-label {
+    @apply text-sm text-gray-500;
+}
+
+.chart-container {
+    @apply bg-white rounded-lg shadow p-6 my-6;
+}
+
+.table-container {
+    @apply bg-white rounded-lg shadow my-6;
+}
+
+.table-header {
+    @apply bg-gray-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b;
+}
+
+.table-sortable {
+    @apply cursor-pointer hover:bg-gray-100;
+}
+
+.table-sortable::after {
+    content: '↑↓';
+    @apply ml-1 text-gray-400;
+}
+
+.filter-bar {
+    @apply flex flex-wrap items-center gap-3 mb-6;
+}
+
+.filter-btn {
+    @apply px-4 py-2 rounded-md text-sm font-medium transition-colors;
+}
+
+.filter-input {
+    @apply border rounded-md px-3 py-2 text-sm;
+}
+
+.filter-btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+
+.filter-custom-container {
+    @apply flex gap-2 items-center;
+}
+
+.pagination {
+    @apply flex justify-between items-center mt-4 text-sm;
+}
+
+.pagination-info {
+    @apply text-gray-500;
+}
+
+.pagination-buttons {
+    @apply flex items-center gap-2;
+}
+
+.pagination-button {
+    @apply px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.search-box {
+    @apply border rounded-md px-3 py-2 text-sm flex-grow max-w-md;
+}
+
+.sort-box {
+    @apply border rounded-md px-3 py-2 text-sm;
+}
+
+.table-actions {
+    @apply flex flex-wrap gap-3 mb-4 items-center;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .stats-grid {
+        @apply grid-cols-2;
+    }
+    
+    .filter-bar {
+        @apply flex-col items-start;
+    }
+    
+    .filter-custom-container {
+        @apply flex-col items-start w-full;
+    }
+    
+    .table-actions {
+        @apply flex-col items-start;
+    }
+    
+    .search-box,
+    .sort-box {
+        @apply w-full;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        @apply grid-cols-1;
+    }
+    
+    .stats-value {
+        @apply text-2xl;
+    }
+}
+
+/* Table hover animations */
+tr {
+    @apply transition-colors;
+}
+
+/* Link styling */
+a {
+    @apply transition-colors;
+}
+
+/* Card highlights */
+.highlight-card {
+    @apply border-l-4 border-blue-500;
+} 
