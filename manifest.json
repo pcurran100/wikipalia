@@ -8,7 +8,8 @@
     "tabs",
     "webNavigation",
     "alarms",
-    "identity"
+    "identity",
+    "idle"
   ],
   "host_permissions": [
     "*://*.wikipedia.org/*",

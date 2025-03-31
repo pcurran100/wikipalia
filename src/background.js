@@ -61,6 +61,32 @@ request.onupgradeneeded = (event) => {
     }
 };
 
+// Set up idle detection
+chrome.idle.setDetectionInterval(60); // Check for idle state every 60 seconds
+
+chrome.idle.onStateChanged.addListener((state) => {
+    console.log('Idle state changed:', state);
+    if (state === 'active') {
+        // Browser is active again
+        broadcastToContentScripts({ type: 'BROWSER_ACTIVE' });
+    } else {
+        // Browser is idle or locked
+        broadcastToContentScripts({ type: 'BROWSER_IDLE' });
+    }
+});
+
+// Helper to send messages to all Wikipedia content scripts
+function broadcastToContentScripts(message) {
+    chrome.tabs.query({ url: '*://*.wikipedia.org/*' }, (tabs) => {
+        tabs.forEach(tab => {
+            chrome.tabs.sendMessage(tab.id, message).catch(err => {
+                // Suppress errors from tabs that might not have content script loaded
+                console.log(`Failed to send message to tab ${tab.id}:`, err);
+            });
+        });
+    });
+}
+
 // Listen for messages from content script or popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'VISIT_START') {
@@ -75,6 +101,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         handleLinkClick(message.data);
     } else if (message.type === 'ARTICLE_READ') {
         handleArticleRead(message.data);
+    } else if (message.type === 'DELETE_HISTORY_ITEM') {
+        handleDeleteHistoryItem(message.id, sendResponse);
+        return true; // Keep sendResponse valid after function returns
     }
     return true;
 });
@@ -181,7 +210,7 @@ function handleVisitEnd(data) {
             if (cursor) {
                 const session = cursor.value;
                 if (session.url === data.url) {
-                    const timeSpent = new Date() - new Date(session.startTime);
+                    const timeSpent = data.time_spent || 0; // Use the actual measured active time
                     visitStore.add({
                         url: data.url,
                         title: data.title,
@@ -199,6 +228,33 @@ function handleVisitEnd(data) {
                 }
             }
         };
+    };
+}
+
+// Handle history item deletion
+function handleDeleteHistoryItem(id, sendResponse) {
+    const request = indexedDB.open(dbName, dbVersion);
+    request.onsuccess = (event) => {
+        const db = event.target.result;
+        const transaction = db.transaction(['visits'], 'readwrite');
+        const visitStore = transaction.objectStore('visits');
+        
+        const deleteRequest = visitStore.delete(id);
+        
+        deleteRequest.onsuccess = () => {
+            console.log(`Deleted history item with ID: ${id}`);
+            sendResponse({ success: true, id: id });
+        };
+        
+        deleteRequest.onerror = (error) => {
+            console.error(`Error deleting history item with ID: ${id}`, error);
+            sendResponse({ success: false, error: error.toString() });
+        };
+    };
+    
+    request.onerror = (error) => {
+        console.error('Error opening database for deletion:', error);
+        sendResponse({ success: false, error: error.toString() });
     };
 }
 

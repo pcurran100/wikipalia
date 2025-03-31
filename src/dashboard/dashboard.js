@@ -273,6 +273,10 @@ function sortVisits(visits) {
                 valA = a.time_spent;
                 valB = b.time_spent;
                 break;
+            case 'links':
+                valA = a.clicked_links || 0;
+                valB = b.clicked_links || 0;
+                break;
             default:
                 valA = new Date(a.timestamp || a.date);
                 valB = new Date(b.timestamp || b.date);
@@ -316,6 +320,7 @@ function updateArticleHistory() {
     visitsToShow.forEach(visit => {
         const row = document.createElement('tr');
         row.className = 'hover:bg-gray-50';
+        row.dataset.id = visit.id; // Store the ID for deletion
         
         const titleCell = document.createElement('td');
         titleCell.className = 'px-6 py-4 whitespace-nowrap';
@@ -336,9 +341,30 @@ function updateArticleHistory() {
         timeCell.className = 'px-6 py-4 whitespace-nowrap text-gray-500';
         timeCell.textContent = formatDuration(visit.time_spent);
         
+        // Add clicked links cell
+        const linksCell = document.createElement('td');
+        linksCell.className = 'px-6 py-4 whitespace-nowrap text-gray-500';
+        linksCell.textContent = visit.clicked_links || 0;
+        
+        // Add actions cell
+        const actionsCell = document.createElement('td');
+        actionsCell.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium';
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'text-red-600 hover:text-red-900';
+        deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>';
+        deleteBtn.title = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            showDeleteModal(visit.id);
+        });
+        
+        actionsCell.appendChild(deleteBtn);
+        
         row.appendChild(titleCell);
         row.appendChild(dateCell);
         row.appendChild(timeCell);
+        row.appendChild(linksCell);
+        row.appendChild(actionsCell);
         
         articleHistory.appendChild(row);
     });
@@ -347,7 +373,7 @@ function updateArticleHistory() {
     if (visitsToShow.length === 0) {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
-        cell.colSpan = 3;
+        cell.colSpan = 5; // Updated column span
         cell.className = 'px-6 py-4 text-center text-gray-500';
         cell.textContent = 'No articles found';
         row.appendChild(cell);
@@ -746,4 +772,59 @@ onAuthStateChanged(auth, (user) => {
         // Redirect to popup if not signed in
         window.close();
     }
-}); 
+});
+
+// Delete History Item Modal
+const deleteModal = document.getElementById('deleteModal');
+const cancelDeleteBtn = document.getElementById('cancelDelete');
+const confirmDeleteBtn = document.getElementById('confirmDelete');
+let itemToDelete = null;
+
+// Show delete confirmation modal
+function showDeleteModal(id) {
+    itemToDelete = id;
+    deleteModal.classList.remove('hidden');
+}
+
+// Hide delete confirmation modal
+function hideDeleteModal() {
+    deleteModal.classList.add('hidden');
+    itemToDelete = null;
+}
+
+// Cancel delete
+cancelDeleteBtn.addEventListener('click', hideDeleteModal);
+
+// Confirm delete
+confirmDeleteBtn.addEventListener('click', () => {
+    if (itemToDelete) {
+        deleteHistoryItem(itemToDelete);
+    }
+});
+
+// Delete history item
+function deleteHistoryItem(id) {
+    chrome.runtime.sendMessage(
+        { type: 'DELETE_HISTORY_ITEM', id: id },
+        (response) => {
+            if (response && response.success) {
+                // Remove from local array
+                allVisits = allVisits.filter(visit => visit.id !== id);
+                filteredVisits = filteredVisits.filter(visit => visit.id !== id);
+                
+                // Update UI
+                updateArticleHistory();
+                updateFavoriteCategories();
+                updateFavoritePages();
+                updateStatsDisplay();
+                
+                // Hide modal
+                hideDeleteModal();
+            } else {
+                console.error('Failed to delete history item:', response ? response.error : 'No response');
+                alert('Failed to delete history item. Please try again.');
+                hideDeleteModal();
+            }
+        }
+    );
+} 
