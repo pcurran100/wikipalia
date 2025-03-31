@@ -119,32 +119,77 @@ function formatDuration(ms) {
 
 function loadStats() {
     const today = new Date().toISOString().split('T')[0];
-    const dbRequest = indexedDB.open('WikipaliaDB', 1);
+    const dbRequest = indexedDB.open('WikipaliaDB', 2); // Update to version 2 to match background.js
 
     dbRequest.onsuccess = (event) => {
-        const db = event.target.result;
-        const transaction = db.transaction(['visits'], 'readonly');
-        const visitStore = transaction.objectStore('visits');
+        try {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('visits')) {
+                console.error('Visits object store not found');
+                updateUIWithDefaultStats();
+                return;
+            }
+            
+            const transaction = db.transaction(['visits'], 'readonly');
+            const visitStore = transaction.objectStore('visits');
+            
+            if (!visitStore.indexNames.contains('date')) {
+                console.error('Date index not found in visits store');
+                updateUIWithDefaultStats();
+                return;
+            }
+            
+            const dateIndex = visitStore.index('date');
+            const todayRequest = dateIndex.getAll(IDBKeyRange.only(today));
 
-        const dateIndex = visitStore.index('date');
-        const todayRequest = dateIndex.getAll(IDBKeyRange.only(today));
+            todayRequest.onsuccess = () => {
+                const todayVisits = todayRequest.result;
+                // Count unique articles
+                const uniqueArticles = new Set(todayVisits.map(v => v.url)).size;
+                // Calculate total time spent today
+                const totalTimeToday = todayVisits.reduce((acc, visit) => acc + (visit.time_spent || 0), 0);
 
-        todayRequest.onsuccess = () => {
-            const todayVisits = todayRequest.result;
-            // Count unique articles
-            const uniqueArticles = new Set(todayVisits.map(v => v.url)).size;
-            // Calculate total time spent today
-            const totalTimeToday = todayVisits.reduce((acc, visit) => acc + (visit.time_spent || 0), 0);
-
-            // Update UI
-            todayArticles.textContent = uniqueArticles;
-            todayTime.textContent = formatDuration(totalTimeToday);
-        };
+                // Update UI
+                todayArticles.textContent = uniqueArticles;
+                todayTime.textContent = formatDuration(totalTimeToday);
+            };
+            
+            todayRequest.onerror = (error) => {
+                console.error('Error fetching today\'s visits:', error);
+                updateUIWithDefaultStats();
+            };
+        } catch (error) {
+            console.error('Error in database transaction:', error);
+            updateUIWithDefaultStats();
+        }
     };
 
     dbRequest.onerror = (event) => {
         console.error('Error opening database:', event.target.error);
+        updateUIWithDefaultStats();
     };
+    
+    // Handle version change needed
+    dbRequest.onupgradeneeded = (event) => {
+        console.warn('Database upgrade needed from popup. This shouldn\'t normally happen as background script should handle upgrades.');
+        // We don't create any object stores here - that should be handled by background.js
+        // Just log an informative message
+    };
+}
+
+// Helper function to show default stats when database access fails
+function updateUIWithDefaultStats() {
+    todayArticles.textContent = '0';
+    todayTime.textContent = '0m 0s';
+    
+    // Show a subtle error message to the user
+    const statsContainer = document.querySelector('.stats-container');
+    if (statsContainer) {
+        const errorNote = document.createElement('div');
+        errorNote.className = 'text-xs text-red-600 mt-2';
+        errorNote.textContent = 'Could not load statistics. Try restarting the extension.';
+        statsContainer.appendChild(errorNote);
+    }
 }
 
 // Set up event listeners

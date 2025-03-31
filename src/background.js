@@ -2,64 +2,88 @@
 const dbName = 'WikipaliaDB';
 const dbVersion = 2; // Increased version to trigger database upgrade
 
-const request = indexedDB.open(dbName, dbVersion);
+initializeDatabase();
 
-request.onerror = (event) => {
-    console.error('Database error:', event.target.error);
-};
+function initializeDatabase() {
+    const request = indexedDB.open(dbName, dbVersion);
 
-request.onupgradeneeded = (event) => {
-    const db = event.target.result;
-    const oldVersion = event.oldVersion;
+    request.onerror = (event) => {
+        console.error('Database error:', event.target.error);
+    };
 
-    // Create or modify stores based on old version
-    if (oldVersion < 1) {
-        // These stores were in version 1
-        if (!db.objectStoreNames.contains('visits')) {
-            const visitStore = db.createObjectStore('visits', { keyPath: 'id', autoIncrement: true });
-            visitStore.createIndex('url', 'url', { unique: false });
-            visitStore.createIndex('date', 'date', { unique: false });
-            visitStore.createIndex('title', 'title', { unique: false });
-            visitStore.createIndex('is_read', 'is_read', { unique: false });
-        }
+    request.onupgradeneeded = (event) => {
+        console.log(`Upgrading database from version ${event.oldVersion} to ${event.target.result.version}`);
+        const db = event.target.result;
+        const oldVersion = event.oldVersion;
+        const transaction = event.target.transaction;
 
-        if (!db.objectStoreNames.contains('sessions')) {
-            const sessionStore = db.createObjectStore('sessions', { keyPath: 'id', autoIncrement: true });
-            sessionStore.createIndex('url', 'url', { unique: false });
-            sessionStore.createIndex('startTime', 'startTime', { unique: false });
-        }
+        try {
+            // Create or modify stores based on old version
+            if (oldVersion < 1) {
+                console.log('Creating stores for version 1');
+                // These stores were in version 1
+                if (!db.objectStoreNames.contains('visits')) {
+                    const visitStore = db.createObjectStore('visits', { keyPath: 'id', autoIncrement: true });
+                    visitStore.createIndex('url', 'url', { unique: false });
+                    visitStore.createIndex('date', 'date', { unique: false });
+                    visitStore.createIndex('title', 'title', { unique: false });
+                }
 
-        if (!db.objectStoreNames.contains('user')) {
-            const userStore = db.createObjectStore('user', { keyPath: 'uid' });
-        }
-    }
-    
-    // New for version 2
-    if (oldVersion < 2) {
-        // Store for link clicks
-        if (!db.objectStoreNames.contains('link_clicks')) {
-            const linkClicksStore = db.createObjectStore('link_clicks', { keyPath: 'id', autoIncrement: true });
-            linkClicksStore.createIndex('from_url', 'from_url', { unique: false });
-            linkClicksStore.createIndex('to_url', 'to_url', { unique: false });
-            linkClicksStore.createIndex('timestamp', 'timestamp', { unique: false });
-            linkClicksStore.createIndex('date', 'date', { unique: false });
-        }
-        
-        // Update visits store if it exists
-        if (db.objectStoreNames.contains('visits')) {
-            // We need to add new indexes to existing store
-            // Note: We can't modify existing object stores directly in onupgradeneeded
-            // We have to create them anew if we want to add indexes
-            const visitStore = event.target.transaction.objectStore('visits');
-            if (!visitStore.indexNames.contains('is_read')) {
-                visitStore.createIndex('is_read', 'is_read', { unique: false });
+                if (!db.objectStoreNames.contains('sessions')) {
+                    const sessionStore = db.createObjectStore('sessions', { keyPath: 'id', autoIncrement: true });
+                    sessionStore.createIndex('url', 'url', { unique: false });
+                    sessionStore.createIndex('startTime', 'startTime', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('user')) {
+                    const userStore = db.createObjectStore('user', { keyPath: 'uid' });
+                }
             }
-            if (!visitStore.indexNames.contains('clicked_links')) {
-                visitStore.createIndex('clicked_links', 'clicked_links', { unique: false });
+            
+            // New for version 2
+            if (oldVersion < 2) {
+                console.log('Upgrading to version 2');
+                // Store for link clicks
+                if (!db.objectStoreNames.contains('link_clicks')) {
+                    const linkClicksStore = db.createObjectStore('link_clicks', { keyPath: 'id', autoIncrement: true });
+                    linkClicksStore.createIndex('from_url', 'from_url', { unique: false });
+                    linkClicksStore.createIndex('to_url', 'to_url', { unique: false });
+                    linkClicksStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    linkClicksStore.createIndex('date', 'date', { unique: false });
+                }
+                
+                // Update visits store if it exists
+                if (db.objectStoreNames.contains('visits')) {
+                    // Add new indexes to existing store
+                    const visitStore = transaction.objectStore('visits');
+                    
+                    // Check if indexes already exist
+                    if (!visitStore.indexNames.contains('is_read')) {
+                        visitStore.createIndex('is_read', 'is_read', { unique: false });
+                    }
+                    
+                    if (!visitStore.indexNames.contains('clicked_links')) {
+                        visitStore.createIndex('clicked_links', 'clicked_links', { unique: false });
+                    }
+                }
             }
+            
+            console.log('Database upgrade completed successfully');
+        } catch (error) {
+            console.error('Error upgrading database:', error);
+            // Force database close and reload to attempt recovery
+            db.close();
+            setTimeout(initializeDatabase, 1000);
         }
-    }
-};
+    };
+
+    request.onsuccess = (event) => {
+        console.log(`Database opened successfully, version: ${event.target.result.version}`);
+        // No need to keep the database connection open here
+        // We'll open it when needed for operations
+        event.target.result.close();
+    };
+}
 
 // Set up idle detection
 chrome.idle.setDetectionInterval(60); // Check for idle state every 60 seconds

@@ -718,24 +718,50 @@ async function loadVisitData() {
         
         dbRequest.onerror = event => {
             console.error('Error opening database:', event.target.error);
-            reject(event.target.error);
+            // Return empty array instead of rejecting to avoid breaking the UI
+            resolve([]);
         };
         
         dbRequest.onsuccess = event => {
-            const db = event.target.result;
-            const transaction = db.transaction(['visits'], 'readonly');
-            const store = transaction.objectStore('visits');
-            const request = store.getAll();
-            
-            request.onsuccess = () => {
-                const visits = request.result;
-                resolve(visits);
-            };
-            
-            request.onerror = event => {
-                console.error('Error loading visits:', event.target.error);
-                reject(event.target.error);
-            };
+            try {
+                const db = event.target.result;
+                
+                // Check if the visits store exists
+                if (!db.objectStoreNames.contains('visits')) {
+                    console.error('Visits object store not found');
+                    resolve([]);
+                    return;
+                }
+                
+                const transaction = db.transaction(['visits'], 'readonly');
+                const store = transaction.objectStore('visits');
+                const request = store.getAll();
+                
+                request.onsuccess = () => {
+                    const visits = request.result;
+                    resolve(visits);
+                };
+                
+                request.onerror = event => {
+                    console.error('Error loading visits:', event.target.error);
+                    resolve([]);
+                };
+                
+                transaction.oncomplete = () => {
+                    db.close();
+                };
+                
+            } catch (error) {
+                console.error('Error in database transaction:', error);
+                resolve([]);
+            }
+        };
+        
+        // Handle version change needed - we don't create any object stores here
+        dbRequest.onupgradeneeded = (event) => {
+            console.warn('Database upgrade needed from dashboard. This shouldn\'t normally happen as background script should handle upgrades.');
+            event.target.transaction.abort(); // Abort the upgrade transaction
+            resolve([]);
         };
     });
 }
